@@ -5,7 +5,7 @@ def genbank_to_table(input_file, output_file):
     # Open the output file
     with open(output_file, 'w') as out:
         # Write the header line
-        out.write("CDS_start\tCDS_end\tgene\tproduct\n")
+        out.write("CDS_start\tCDS_end\tgene\tproduct\tlocus_tag\n")
         
         # Parse the GenBank file
         for record in SeqIO.parse(input_file, "genbank"):
@@ -16,12 +16,13 @@ def genbank_to_table(input_file, output_file):
                     start = int(feature.location.start) + 1  # Convert to 1-based position
                     end = int(feature.location.end)
                     
-                    # Extract gene and product information (use 'NA' if not available)
+                    # Extract gene, product, and locus_tag information (use 'NA' if not available)
                     gene = feature.qualifiers.get('gene', ['NA'])[0]
                     product = feature.qualifiers.get('product', ['NA'])[0]
+                    locus_tag = feature.qualifiers.get('locus_tag', ['NA'])[0]
                     
                     # Write the information to the output file
-                    out.write(f"{start}\t{end}\t{gene}\t{product}\n")
+                    out.write(f"{start}\t{end}\t{gene}\t{product}\t{locus_tag}\n")
 
     print(f"Conversion complete! Table written to: {output_file}")
 
