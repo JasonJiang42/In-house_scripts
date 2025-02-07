@@ -3,7 +3,8 @@ import argparse
 
 def process_blastn_results(input_file, output_file):
     """
-    Process a BLASTn result file, reformat it, and summarize the output with one subject per query.
+    Process a BLASTn result file, summarize the output per subject and per query,
+    and aggregate statistics like total score, max score, and average percent identity.
     """
     # Define the column names of the input BLASTn file
     columns = [
@@ -14,39 +15,35 @@ def process_blastn_results(input_file, output_file):
     # Read the BLASTn result file into a pandas DataFrame
     df = pd.read_csv(input_file, sep="\t", header=None, names=columns)
 
-    # Calculate Total_score as the sum of bitscores for each query-subject pair
-    df["Total_score"] = df.groupby(["qseqid", "sseqid"])["bitscore"].transform("sum")
+    # Group by both query (`qseqid`) and subject (`sseqid`) and calculate summary statistics
+    summary = df.groupby(["qseqid", "sseqid"]).agg(
+        Total_score=("bitscore", "sum"),         # Sum of all scores for query-subject pair
+        Max_score=("bitscore", "max"),          # Maximum score for query-subject pair
+        Per_identity=("pident", "mean"),        # Average percent identity
+        E_value=("evalue", "min"),              # Minimum e-value
+        Avg_qcov=("qcovs", "mean")              # Average query coverage
+    ).reset_index()
 
-    # Group by query (`qseqid`) and select the best hit for each query based on the highest Total_score
-    best_hits = df.sort_values("Total_score", ascending=False).groupby("qseqid").first().reset_index()
-
-    # Rename and select the required columns for output
-    best_hits = best_hits.rename(columns={
+    # Rename columns for output consistency
+    summary = summary.rename(columns={
         "qseqid": "query",
         "sseqid": "subject",
-        "bitscore": "Max_score",
-        "pident": "Per.identity",
-        "evalue": "E.value",
-        "qcovs": "qcov"
+        "Per_identity": "Per.identity",
+        "E_value": "E.value",
+        "Avg_qcov": "qcov"
     })
 
-    # Rearrange columns in the desired order, excluding mapped_length
-    best_hits = best_hits[[
-        "subject", "query", "Max_score", "Total_score", "qcov",
-        "Per.identity", "E.value"
-    ]]
-
-    # Save the reformatted and summarized output to the specified file
-    best_hits.to_csv(output_file, sep="\t", index=False)
-    print(f"Output written to {output_file}")
+    # Save the summarized output to the specified file
+    summary.to_csv(output_file, sep="\t", index=False)
+    print(f"Summarized output written to {output_file}")
 
 # Main function to handle command-line arguments
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Reformat and summarize BLASTn results.")
+    parser = argparse.ArgumentParser(description="Summarize BLASTn results per subject and per query.")
     parser.add_argument("-i", "--input", required=True, metavar="INPUT_FILE",
                         help="Input BLASTn result file.")
     parser.add_argument("-o", "--output", required=True, metavar="OUTPUT_FILE",
-                        help="Output file for reformatted and summarized results.")
+                        help="Output file for summarized results.")
     args = parser.parse_args()
 
     # Process the BLASTn results
